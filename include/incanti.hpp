@@ -9,6 +9,11 @@
  * ii. others in snake_case.
  */
 
+class ParseError : public std::runtime_error {
+public:
+  explicit ParseError(const std::string &msg) : std::runtime_error(msg) {}
+};
+
 namespace Incanti {
 class Parser {
 public:
@@ -27,6 +32,34 @@ public:
       if (arg == "-h" || arg == "--help") {
         print_help();
         exit(0);
+      }
+
+      /* long options, starting with '--' */
+      if (arg.substr(0, 2) == "--") {
+        std::string name = arg.substr(2);
+        std::string value;
+
+        // also support : "./prog --index=a1"
+        size_t eq = name.find("=");
+        if (eq != std::string::npos) {
+          value = name.substr(eq + 1);
+          name = name.substr(0, eq);
+        }
+
+        if (value.empty()) {
+          if (i + 1 >= argc) {
+            throw ParseError("Argument --" + name + " requires a value");
+          }
+          value = argv[++i];
+        }
+      } else if (arg[0] == '-' && arg.length() > 1 && arg[1] != '-') {
+        /* short options, starting with '-' */
+        std::string name = arg.substr(1);
+        std::string value;
+        if (i + 1 >= argc) {
+          throw ParseError("Argument --" + name + " requires a value");
+        }
+        value = argv[++i];
       }
     }
   }
