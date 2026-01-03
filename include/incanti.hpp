@@ -79,11 +79,20 @@ public:
          const std::string_view &program_desc = "")
       : program_name_(program_name), program_desc_(program_desc) {}
 
+  /* add args which are flags - true/false */
   FlagArgument &flag(const std::string &name, const std::string &short_name,
                      bool *value_ptr) {
     auto arg = std::make_shared<FlagArgument>(name, short_name, value_ptr);
     arguments_[name] = arg;
+    if (!short_name.empty()) {
+      short_to_long_[short_name] = name;
+    }
     return *arg;
+  }
+
+  /* add args which are flags - true/false (when no short name) */
+  FlagArgument &flag(const std::string &name, bool *value_ptr) {
+    return flag(name, "", value_ptr);
   }
 
   void parse(int argc, char *argv[]) {
@@ -130,12 +139,23 @@ public:
         }
       } else if (arg[0] == '-' && arg.length() > 1 && arg[1] != '-') {
         /* short options, starting with '-' */
-        std::string name = arg.substr(1);
-        std::string value;
-        if (i + 1 >= argc) {
-          throw ParseError("Argument --" + name + " requires a value");
+        std::string short_name = arg.substr(1);
+
+        auto match = short_to_long_.find(short_name);
+        if (match != short_to_long_.end()) {
+          auto arg_it = arguments_.find(match->second);
+          auto flag_arg = dynamic_cast<FlagArgument *>(arg_it->second.get());
+
+          if (flag_arg) {
+            flag_arg->parse("");
+          } else {
+            if (i + 1 >= argc) {
+              throw ParseError("Argument --" + short_name +
+                               " requires a value");
+            }
+            arg_it->second->parse(argv[++i]);
+          }
         }
-        value = argv[++i];
       }
     }
   }
@@ -154,6 +174,7 @@ private:
   std::string_view program_name_;
   std::string_view program_desc_;
   std::map<std::string, std::shared_ptr<Argument>> arguments_;
+  std::map<std::string, std::string> short_to_long_;
 };
 } // namespace Incanti
 
