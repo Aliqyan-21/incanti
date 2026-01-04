@@ -1,9 +1,12 @@
 #ifndef INCANTI_HPP
 #define INCANTI_HPP
 
+#include <algorithm>
+#include <functional>
 #include <iostream>
 #include <map>
 #include <memory>
+#include <sstream>
 
 /*
  * Rules
@@ -25,6 +28,123 @@ public:
   virtual std::string get_help() const = 0;
   virtual bool is_required() const = 0;
   virtual std::string get_name() const = 0;
+};
+
+template <typename T> class TypedArgument : public Argument {
+public:
+  TypedArgument(const std::string &name, const std::string &short_name,
+                T *value_ptr)
+      : name_(name), short_name_(short_name), value_ptr_(value_ptr),
+        required_(false), has_default_(false), parsed_(false) {
+    str_to_T_ = [this](const std::string &s) { return converter_(s); };
+  }
+
+  void parse(const std::string &value) override {
+    try {
+      *value_ptr_ = str_to_T_(value);
+      parsed_ = true;
+    } catch (const std::exception &e) {
+      throw ParseError("Failed to parse '" + value + "' for argument --" +
+                       name_ + ": " + e.what());
+    }
+  }
+  bool has_value() const override { return parsed_ || has_default_; }
+  bool is_required() const override { return required_; }
+  std::string get_name() const override { return name_; }
+
+  std::string get_help() const override {
+    std::string result;
+    if (!short_name_.empty()) {
+      result += "-" + short_name_ + ", ";
+    }
+    result += "--" + name_;
+
+    if (std::is_same_v<T, bool>) {
+      result += " <value>";
+    }
+
+    if (!help_.empty()) {
+      result += "\n   " + help_;
+    }
+
+    if (has_default_ && !required_) {
+      std::ostringstream oss;
+      oss << default_val_;
+      result += " (default: " + oss.str() + ")";
+    }
+
+    if (required_) {
+      result += "[required]";
+    }
+
+    return result;
+  }
+
+  TypedArgument &help(const std::string &help_text) {
+    help_ = help_text;
+    return *this;
+  }
+
+  TypedArgument &default_value(const T &value) {
+    default_val_ = value;
+    has_default_ = true;
+    if (!parsed_) {
+      *value_ptr_ = value;
+    }
+    return *this;
+  }
+
+  TypedArgument &required() {
+    required_ = true;
+    return *this;
+  }
+
+  TypedArgument &converter(std::function<T(const std::string &)> conv) {
+    str_to_T_ = conv;
+    return *this;
+  }
+
+private:
+  std::string name_;
+  std::string short_name_;
+  std::string help_;
+  T *value_ptr_;
+  T default_val_;
+  bool required_;
+  bool has_default_;
+  bool parsed_;
+  std::function<T(const std::string &value)> str_to_T_;
+
+  bool boolify_(const std::string &str) {
+    std::string lower = str;
+    std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
+    if (lower == "true" || lower == "1" || lower == "yes")
+      return true;
+    if (lower == "false" || lower == "0" || lower == "no")
+      return false;
+    throw ParseError("Invalid boolean value: " + str);
+  }
+
+  T converter_(const std::string &str) {
+    if constexpr (std::is_same_v<T, std::string>) {
+      return str;
+    } else if constexpr (std::is_same_v<T, int>) {
+      return std::stoi(str);
+    } else if constexpr (std::is_same_v<T, float>) {
+      return std::stof(str);
+    } else if constexpr (std::is_same_v<T, double>) {
+      return std::stod(str);
+    } else if constexpr (std::is_same_v<T, long>) {
+      return std::stol(str);
+    } else if constexpr (std::is_same_v<T, bool>) {
+      return boolify_(str);
+    } else {
+      // todo: add link to docs.
+      throw ParseError("No default converter for this type. "
+                       "Please provide a custom .converter() for --" +
+                       name_);
+    }
+  }
 };
 
 class FlagArgument : public Argument {
@@ -78,6 +198,22 @@ public:
   Parser(const std::string_view &program_name = "",
          const std::string_view &program_desc = "")
       : program_name_(program_name), program_desc_(program_desc) {}
+
+  template <typename T>
+  TypedArgument<T> &add(const std::string &name, const std::string &short_name,
+                        T *value_ptr) {
+    auto arg = std::make_shared<TypedArgument<T>>(name, short_name, value_ptr);
+    arguments_[name] = arg;
+    if (!short_name.empty()) {
+      short_to_long_[short_name] = name;
+    }
+    return *arg;
+  }
+
+  template <typename T>
+  TypedArgument<T> &add(const std::string &name, T *value_ptr) {
+    return add(name, "", value_ptr);
+  }
 
   /* add args which are flags - true/false */
   FlagArgument &flag(const std::string &name, const std::string &short_name,
@@ -156,6 +292,12 @@ public:
             arg_it->second->parse(argv[++i]);
           }
         }
+      }
+    }
+
+    for (const auto &[name, arg] : arguments_) {
+      if (arg->is_required() && !arg->has_value()) {
+        throw ParseError("Required argument missing: --" + name);
       }
     }
   }
