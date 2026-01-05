@@ -14,12 +14,12 @@
  * ii. others in snake_case.
  */
 
+namespace Incanti {
 class ParseError : public std::runtime_error {
 public:
   explicit ParseError(const std::string &msg) : std::runtime_error(msg) {}
 };
 
-namespace Incanti {
 class Argument {
 public:
   virtual ~Argument() = default;
@@ -202,6 +202,17 @@ public:
   template <typename T>
   TypedArgument<T> &add(const std::string &name, const std::string &short_name,
                         T *value_ptr) {
+    if (arguments_.find(name) != arguments_.end()) {
+      throw ParseError("Duplicate argument name: --" + name);
+    }
+
+    if (!short_name.empty() &&
+        short_to_long_.find(short_name) != short_to_long_.end()) {
+      throw ParseError("Duplicate short option name: " + short_name +
+                       " (already used by --" + short_to_long_[short_name] +
+                       ")");
+    }
+
     auto arg = std::make_shared<TypedArgument<T>>(name, short_name, value_ptr);
     arguments_[name] = arg;
     if (!short_name.empty()) {
@@ -218,6 +229,17 @@ public:
   /* add args which are flags - true/false */
   FlagArgument &flag(const std::string &name, const std::string &short_name,
                      bool *value_ptr) {
+    if (arguments_.find(name) != arguments_.end()) {
+      throw ParseError("Duplicate argument name: --" + name);
+    }
+
+    if (!short_name.empty() &&
+        short_to_long_.find(short_name) != short_to_long_.end()) {
+      throw ParseError("Duplicate short option name: " + short_name +
+                       " (already used by --" + short_to_long_[short_name] +
+                       ")");
+    }
+
     auto arg = std::make_shared<FlagArgument>(name, short_name, value_ptr);
     arguments_[name] = arg;
     if (!short_name.empty()) {
