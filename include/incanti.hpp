@@ -197,7 +197,9 @@ class Parser {
 public:
   Parser(const std::string_view &program_name = "",
          const std::string_view &program_desc = "")
-      : program_name_(program_name), program_desc_(program_desc) {}
+      : program_name_(program_name), program_desc_(program_desc), help_added_(false) {
+        add_help_flag();
+      }
 
   template <typename T>
   TypedArgument<T> &add(const std::string &name, const std::string &short_name,
@@ -258,7 +260,7 @@ public:
       program_name_ = argv[0];
     }
 
-    for (int i{0}; i < argc; ++i) {
+    for (int i{1}; i < argc; ++i) {
       std::string arg = argv[i];
 
       if (arg == "-h" || arg == "--help") {
@@ -376,6 +378,18 @@ private:
   std::map<std::string, std::shared_ptr<Argument>> arguments_;
   std::map<std::string, std::string> short_to_long_;
   std::vector<std::string> positionals_;
+  bool help_added_;
+
+  void add_help_flag() {
+    if (!help_added_) {
+      auto help_flag =
+          std::make_shared<FlagArgument>("help", "h", new bool(false));
+      help_flag->help("Show this help message");
+      arguments_["help"] = help_flag;
+      short_to_long_["h"] = "help";
+      help_added_ = true;
+    }
+  }
 };
 } // namespace Incanti
 
