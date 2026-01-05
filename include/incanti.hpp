@@ -74,7 +74,7 @@ public:
     }
 
     if (required_) {
-      result += "[required]";
+      result += " [required]";
     }
 
     return result;
@@ -362,6 +362,11 @@ public:
 
     if (!program_desc_.empty()) {
       std::cout << program_desc_ << std::endl;
+    }
+
+    std::cout << "\nOptions: " << std::endl;
+    for (const auto &[name, arg] : arguments_) {
+      std::cout << arg->get_help() << std::endl;
     }
   }
 
