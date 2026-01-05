@@ -291,7 +291,36 @@ public:
             }
             arg_it->second->parse(argv[++i]);
           }
+        } else {
+          /* combining of different flags like : '-vdi' */
+          for (size_t j{0}; j < short_name.length(); ++j) {
+            std::string short_opt(1, short_name[j]);
+            auto it = short_to_long_.find(short_opt);
+            if (it == short_to_long_.end()) {
+              throw ParseError("Unknown argument: -" + short_opt);
+            }
+
+            auto arg_it = arguments_.find(it->second);
+            auto flag_arg = dynamic_cast<FlagArgument *>(arg_it->second.get());
+
+            if (flag_arg) {
+              flag_arg->parse("");
+            } else {
+              if (j < short_name.length() - 1) {
+                // value is attached: -ofile.txt | -vfd (combinatorics magic)
+                arg_it->second->parse(short_name.substr(j + 1));
+                break;
+              } else if (i + 1 >= argc) {
+                throw ParseError("Argument -" + short_opt +
+                                 " requires a value");
+              } else {
+                arg_it->second->parse(argv[++i]);
+              }
+            }
+          }
         }
+      } else {
+        positionals_.push_back(arg);
       }
     }
 
@@ -301,6 +330,8 @@ public:
       }
     }
   }
+
+  const std::vector<std::string> &positional() const { return positionals_; }
 
   void print_help() {
     if (!program_name_.empty()) {
@@ -317,6 +348,7 @@ private:
   std::string_view program_desc_;
   std::map<std::string, std::shared_ptr<Argument>> arguments_;
   std::map<std::string, std::string> short_to_long_;
+  std::vector<std::string> positionals_;
 };
 } // namespace Incanti
 

@@ -3,24 +3,31 @@
 
 int main(int argc, char *argv[]) {
   Incanti::Parser p("incanti-test", "program to test incanti");
-  float height, width;
-  uint32_t point;
+  std::string input_file;
 
-  p.add("height", "y", &height).required();
-  p.add("width", "x", &width).default_value(0.0f).is_required();
-  // p.add("point", "p", &point).default_value(0);
+  bool verbose = false;
+  bool debug = false;
+  bool force = false;
+  bool dry_run = false;
 
-  p.add("point", "p", &point)
-      .default_value(0)
-      .converter([](const std::string &s) {
-        uint32_t val = stoul(s);
-        return val;
-      });
+  p.add("input", "i", &input_file).help("Input file path").required();
+
+  p.flag("verbose", "v", &verbose).help("Enable verbose output");
+
+  p.flag("debug", "d", &debug).help("Enable debug mode");
+
+  p.flag("force", "f", &force).help("Force overwrite existing files");
+
+  p.flag("dry-run", "n", &dry_run)
+      .help("Perform a dry run without making changes");
 
   p.parse(argc, argv);
 
-  std::cout << "height: " << height << std::endl;
-  std::cout << "width: " << width << std::endl;
-  std::cout << "point: " << point << std::endl;
+  std::cout << "input: " << input_file << std::endl;
+
+  std::cout << "verbose: " << verbose << std::endl;
+  std::cout << "force: " << force << std::endl;
+  std::cout << "debug: " << debug << std::endl;
+  std::cout << "dry run: " << dry_run << std::endl;
   return 0;
 }
