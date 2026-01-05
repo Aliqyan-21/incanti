@@ -59,7 +59,7 @@ public:
     }
     result += "--" + name_;
 
-    if (std::is_same_v<T, bool>) {
+    if (!std::is_same_v<T, bool>) {
       result += " <value>";
     }
 
@@ -195,11 +195,12 @@ private:
 
 class Parser {
 public:
-  Parser(const std::string_view &program_name = "",
-         const std::string_view &program_desc = "")
-      : program_name_(program_name), program_desc_(program_desc), help_added_(false) {
-        add_help_flag();
-      }
+  Parser(const std::string &program_name = "",
+         const std::string &program_desc = "")
+      : program_name_(program_name), program_desc_(program_desc),
+        help_added_(false) {
+    add_help_flag();
+  }
 
   template <typename T>
   TypedArgument<T> &add(const std::string &name, const std::string &short_name,
@@ -373,8 +374,8 @@ public:
   }
 
 private:
-  std::string_view program_name_;
-  std::string_view program_desc_;
+  std::string program_name_;
+  std::string program_desc_;
   std::map<std::string, std::shared_ptr<Argument>> arguments_;
   std::map<std::string, std::string> short_to_long_;
   std::vector<std::string> positionals_;
