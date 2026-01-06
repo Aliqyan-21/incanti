@@ -27,17 +27,17 @@ int main(int argc, char *argv[]) {
 
   try {
     // required argument like this
-    parser.add("input", "i", &input_file)
+    parser >> arg("input", "i", &input_file)
       | required
       | "Input file path";
 
     // optional with default value
-    parser.add("output", "o", &output_file)
+    parser >> arg("output", "o", &output_file)
       | "output file path"
       | def("output.txt");
 
     // custom converter (uppercase) like this
-    parser.add("mode", "m", &mode)
+    parser >> arg("mode", "m", &mode)
       | "Processing mode (fast/slow/balanced)"
       | def("balanced")
       | [](const std::string &s) {
@@ -49,12 +49,12 @@ int main(int argc, char *argv[]) {
         return upper;
       };
 
-    parser.add("threads", "t", &threads)
+    parser >> arg("threads", "t", &threads)
         | "Number of worker threads"
         | def(4);
 
     // custom range validation
-    parser.add("threshold", &threshold)
+    parser >> arg("threshold", &threshold)
         | "Confidence threshold (0.0-1.0)"
         | def(0.5)
         | [](const std::string &s) {
@@ -65,21 +65,21 @@ int main(int argc, char *argv[]) {
           return val;
         };
 
-    parser.add("scale", "s", &scale)
+    parser >> arg("scale", "s", &scale)
       | "Scaling factor"
       | def(1.0f);
 
     // flags
-    parser.flag("verbose", "v", &verbose)
+    parser >> flag("verbose", "v", &verbose)
       | "Enable verbose output";
 
-    parser.flag("debug", "d", &debug)
+    parser >> flag("debug", "d", &debug)
       | "Enable debug mode";
 
-    parser.flag("force", "f", &force)
+    parser >> flag("force", "f", &force)
       | "Force overwrite existing files";
 
-    parser.flag("dry-run", "n", &dry_run)
+    parser >> flag("dry-run", "n", &dry_run)
       | "Perform a dry run without making changes";
 
     // call parse to parse arguments
