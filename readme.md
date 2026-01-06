@@ -40,6 +40,20 @@ parser >> flag("verbose", "v", &verbose)
       | "Enable verbose output";
 ```
 
+## Install
+
+1. Using wget
+```bash
+wget https://github.com/Aliqyan-21/incanti/raw/main/include/incanti.hpp
+```
+
+2. Using curl
+```bash
+curl -L https://raw.githubusercontent.com/Aliqyan-21/incanti/main/include/incanti.hpp -o incanti.hpp
+```
+
+> will be installed as `incanti.hpp` in the folder you are currently in
+
 ## Quick Start
 
 > Use any style u want, it's magic anyways!
