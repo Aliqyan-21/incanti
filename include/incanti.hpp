@@ -278,7 +278,7 @@ public:
   }
 
   template <typename T>
-  TypedArgument<T> &add(const std::string &name, const std::string &short_name,
+  TypedArgument<T> &arg(const std::string &name, const std::string &short_name,
                         T *value_ptr) {
     if (arguments_.find(name) != arguments_.end()) {
       throw ParseError("Duplicate argument name: --" + name);
@@ -300,8 +300,8 @@ public:
   }
 
   template <typename T>
-  TypedArgument<T> &add(const std::string &name, T *value_ptr) {
-    return add(name, "", value_ptr);
+  TypedArgument<T> &arg(const std::string &name, T *value_ptr) {
+    return arg(name, "", value_ptr);
   }
 
   /* add args which are flags - true/false */
@@ -494,7 +494,7 @@ inline Incanti::FlagP flag(std::string name, bool *value_ptr) {
 template <typename T>
 Incanti::TypedArgument<T> &operator>>(Incanti::Parser &parser,
                                       Incanti::ArgP<T> p) {
-  return parser.add(std::move(p.name), std::move(p.short_name), p.value_ptr);
+  return parser.arg(std::move(p.name), std::move(p.short_name), p.value_ptr);
 }
 
 inline Incanti::FlagArgument &operator>>(Incanti::Parser &parser,

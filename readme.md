@@ -71,11 +71,11 @@ int main(int argc, char *argv[]) {
     /* you can any way to use Incanti */
 
     // Method 1: normal fluent interface
-    parser.add("input", "i", &input)
+    parser.arg("input", "i", &input)
         .help("Input file path")
         .required();
 
-    parser.add("threads", "t", &threads)
+    parser.arg("threads", "t", &threads)
         .help("Number of threads")
         .default_value(4);
 
