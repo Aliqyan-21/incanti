@@ -20,6 +20,19 @@ public:
   explicit ParseError(const std::string &msg) : std::runtime_error(msg) {}
 };
 
+struct required_t {
+} constexpr required{};
+
+struct help_t {};
+
+struct default_tag {};
+template <typename T> struct default_wrapper {
+  T value;
+  constexpr default_wrapper(T v) : value(std::move(v)) {}
+};
+
+struct converter_tag {};
+
 class Argument {
 public:
   virtual ~Argument() = default;
@@ -104,6 +117,40 @@ public:
     return *this;
   }
 
+  TypedArgument<T> &operator|(const char *help_text) {
+    help_ = help_text;
+    return *this;
+  }
+
+  TypedArgument<T> &operator|(const std::string &help_text) {
+    help_ = help_text;
+    return *this;
+  }
+
+  TypedArgument<T> &operator|(required_t) {
+    required_ = true;
+    return *this;
+  }
+
+  template <typename U>
+  TypedArgument<T> &operator|(const default_wrapper<U> &def_val) {
+    static_assert(std::is_convertible_v<U, T>,
+                  "Default value must be convertible to argument type");
+    default_val_ = static_cast<T>(def_val.value);
+    has_default_ = true;
+    if (!parsed_) {
+      *value_ptr_ = default_val_;
+    }
+    return *this;
+  }
+
+  template <typename Func, typename = std::enable_if_t<std::is_invocable_r_v<
+                               T, Func, const std::string &>>>
+  TypedArgument<T> &operator|(Func &&converter) {
+    str_to_T_ = std::forward<Func>(converter);
+    return *this;
+  }
+
 private:
   std::string name_;
   std::string short_name_;
@@ -181,6 +228,16 @@ public:
   }
 
   FlagArgument &help(const std::string &help_text) {
+    help_ = help_text;
+    return *this;
+  }
+
+  FlagArgument &operator|(const char *help_text) {
+    help_ = help_text;
+    return *this;
+  }
+
+  FlagArgument &operator|(const std::string &help_text) {
     help_ = help_text;
     return *this;
   }
@@ -393,5 +450,11 @@ private:
   }
 };
 } // namespace Incanti
+
+inline constexpr Incanti::required_t required{};
+
+template <typename T> constexpr auto def(T &&value) {
+  return Incanti::default_wrapper<std::decay_t<T>>{std::forward<T>(value)};
+}
 
 #endif //! INCANTI_HPP
