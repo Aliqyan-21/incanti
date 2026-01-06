@@ -27,53 +27,60 @@ int main(int argc, char *argv[]) {
 
   try {
     // required argument like this
-    parser.add("input", "i", &input_file).help("Input file path").required();
+    parser >> arg("input", "i", &input_file)
+      | required
+      | "Input file path";
 
     // optional with default value
-    parser.add("output", "o", &output_file)
-        .help("Output file path")
-        .default_value("output.txt");
+    parser >> arg("output", "o", &output_file)
+      | "output file path"
+      | def("output.txt");
 
     // custom converter (uppercase) like this
-    parser.add("mode", "m", &mode)
-        .help("Processing mode (fast/slow/balanced)")
-        .default_value("balanced")
-        .converter([](const std::string &s) {
-          std::string upper = s;
-          std::transform(upper.begin(), upper.end(), upper.begin(), ::toupper);
-          if (upper != "FAST" && upper != "SLOW" && upper != "BALANCED") {
-            throw Incanti::ParseError("Mode must be fast, slow, or balanced");
-          }
-          return upper;
-        });
+    parser >> arg("mode", "m", &mode)
+      | "Processing mode (fast/slow/balanced)"
+      | def("balanced")
+      | [](const std::string &s) {
+        std::string upper = s;
+        std::transform(upper.begin(), upper.end(), upper.begin(), ::toupper);
+        if (upper != "FAST" && upper != "SLOW" && upper != "BALANCED") {
+          throw Incanti::ParseError("Mode must be fast, slow, or balanced");
+        }
+        return upper;
+      };
 
-    parser.add("threads", "t", &threads)
-        .help("Number of worker threads")
-        .default_value(4);
+    parser >> arg("threads", "t", &threads)
+        | "Number of worker threads"
+        | def(4);
 
     // custom range validation
-    parser.add("threshold", &threshold)
-        .help("Confidence threshold (0.0-1.0)")
-        .default_value(0.5)
-        .converter([](const std::string &s) {
+    parser >> arg("threshold", &threshold)
+        | "Confidence threshold (0.0-1.0)"
+        | def(0.5)
+        | [](const std::string &s) {
           double val = std::stod(s);
           if (val < 0.0 || val > 1.0) {
             throw Incanti::ParseError("Threshold must be between 0.0 and 1.0");
           }
           return val;
-        });
+        };
 
-    parser.add("scale", "s", &scale).help("Scaling factor").default_value(1.0f);
+    parser >> arg("scale", "s", &scale)
+      | "Scaling factor"
+      | def(1.0f);
 
     // flags
-    parser.flag("verbose", "v", &verbose).help("Enable verbose output");
+    parser >> flag("verbose", "v", &verbose)
+      | "Enable verbose output";
 
-    parser.flag("debug", "d", &debug).help("Enable debug mode");
+    parser >> flag("debug", "d", &debug)
+      | "Enable debug mode";
 
-    parser.flag("force", "f", &force).help("Force overwrite existing files");
+    parser >> flag("force", "f", &force)
+      | "Force overwrite existing files";
 
-    parser.flag("dry-run", "n", &dry_run)
-        .help("Perform a dry run without making changes");
+    parser >> flag("dry-run", "n", &dry_run)
+      | "Perform a dry run without making changes";
 
     // call parse to parse arguments
     parser.parse(argc, argv);

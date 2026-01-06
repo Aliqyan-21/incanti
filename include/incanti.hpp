@@ -20,6 +20,37 @@ public:
   explicit ParseError(const std::string &msg) : std::runtime_error(msg) {}
 };
 
+struct required_t {
+} constexpr required{};
+
+struct help_t {};
+
+struct default_t {};
+template <typename T> struct default_wrapper {
+  T value;
+  constexpr default_wrapper(T v) : value(std::move(v)) {}
+};
+
+struct converter_t {};
+
+template <typename T> struct ArgP {
+  std::string name;
+  std::string short_name;
+  T *value_ptr;
+
+  ArgP(std::string n, std::string sn, T *p)
+      : name(std::move(n)), short_name(std::move(sn)), value_ptr(p) {}
+};
+
+struct FlagP {
+  std::string name;
+  std::string short_name;
+  bool *value_ptr;
+
+  FlagP(std::string n, std::string sn, bool *p)
+      : name(std::move(n)), short_name(std::move(sn)), value_ptr(p) {}
+};
+
 class Argument {
 public:
   virtual ~Argument() = default;
@@ -104,6 +135,40 @@ public:
     return *this;
   }
 
+  TypedArgument<T> &operator|(const char *help_text) {
+    help_ = help_text;
+    return *this;
+  }
+
+  TypedArgument<T> &operator|(const std::string &help_text) {
+    help_ = help_text;
+    return *this;
+  }
+
+  TypedArgument<T> &operator|(required_t) {
+    required_ = true;
+    return *this;
+  }
+
+  template <typename U>
+  TypedArgument<T> &operator|(const default_wrapper<U> &def_val) {
+    static_assert(std::is_convertible_v<U, T>,
+                  "Default value must be convertible to argument type");
+    default_val_ = static_cast<T>(def_val.value);
+    has_default_ = true;
+    if (!parsed_) {
+      *value_ptr_ = default_val_;
+    }
+    return *this;
+  }
+
+  template <typename Func, typename = std::enable_if_t<std::is_invocable_r_v<
+                               T, Func, const std::string &>>>
+  TypedArgument<T> &operator|(Func &&converter) {
+    str_to_T_ = std::forward<Func>(converter);
+    return *this;
+  }
+
 private:
   std::string name_;
   std::string short_name_;
@@ -181,6 +246,16 @@ public:
   }
 
   FlagArgument &help(const std::string &help_text) {
+    help_ = help_text;
+    return *this;
+  }
+
+  FlagArgument &operator|(const char *help_text) {
+    help_ = help_text;
+    return *this;
+  }
+
+  FlagArgument &operator|(const std::string &help_text) {
     help_ = help_text;
     return *this;
   }
@@ -393,5 +468,38 @@ private:
   }
 };
 } // namespace Incanti
+
+inline constexpr Incanti::required_t required{};
+
+template <typename T> constexpr auto def(T &&value) {
+  return Incanti::default_wrapper<std::decay_t<T>>{std::forward<T>(value)};
+}
+
+template <typename T>
+Incanti::ArgP<T> arg(std::string name, std::string short_name, T *value_ptr) {
+  return Incanti::ArgP<T>{std::move(name), std::move(short_name), value_ptr};
+}
+template <typename T> Incanti::ArgP<T> arg(std::string name, T *value_ptr) {
+  return arg(std::move(name), "", value_ptr);
+}
+
+inline Incanti::FlagP flag(std::string name, std::string short_name,
+                           bool *value_ptr) {
+  return Incanti::FlagP{std::move(name), std::move(short_name), value_ptr};
+}
+inline Incanti::FlagP flag(std::string name, bool *value_ptr) {
+  return Incanti::FlagP{std::move(name), "", value_ptr};
+}
+
+template <typename T>
+Incanti::TypedArgument<T> &operator>>(Incanti::Parser &parser,
+                                      Incanti::ArgP<T> p) {
+  return parser.add(std::move(p.name), std::move(p.short_name), p.value_ptr);
+}
+
+inline Incanti::FlagArgument &operator>>(Incanti::Parser &parser,
+                                         Incanti::FlagP p) {
+  return parser.flag(std::move(p.name), std::move(p.short_name), p.value_ptr);
+}
 
 #endif //! INCANTI_HPP
