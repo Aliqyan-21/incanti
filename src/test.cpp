@@ -49,7 +49,7 @@ int main(int argc, char *argv[]) {
         return upper;
       };
 
-    parser >> arg("threads", "t", &threads)
+    parser >> arg("threads", "th", &threads)
         | "Number of worker threads"
         | def(4);
 

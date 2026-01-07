@@ -377,45 +377,103 @@ public:
         /* short options, starting with '-' */
         std::string short_name = arg.substr(1);
 
-        auto match = short_to_long_.find(short_name);
-        if (match != short_to_long_.end()) {
-          auto arg_it = arguments_.find(match->second);
+        auto exact_match = short_to_long_.find(short_name);
+        if (exact_match != short_to_long_.end()) {
+          auto arg_it = arguments_.find(exact_match->second);
+          auto flag_arg = dynamic_cast<FlagArgument *>(arg_it->second.get());
+          if (flag_arg) {
+            flag_arg->parse("");
+          } else {
+            if (i + 1 >= argc) {
+              throw ParseError("Argument -" + short_name + " requires a value");
+            }
+            std::string next_arg = argv[i + 1];
+            if (next_arg.empty() || next_arg[0] == '-') {
+              throw ParseError("Argument -" + short_name + " requires a value");
+            }
+            arg_it->second->parse(argv[++i]);
+          }
+          continue;
+        }
+
+        /* we try to find the longest registered short optio  that matches
+         beginning of what the user provided. */
+        std::string rsn;
+        std::string value_part;
+
+        for (const auto &[short_opt, long_name] : short_to_long_) {
+          if (short_opt.length() > 1 &&
+              short_name.length() > short_opt.length() &&
+              short_name.substr(0, short_opt.length()) == short_opt) {
+            if (short_opt.length() > rsn.length()) {
+              rsn = short_opt;
+              value_part = short_name.substr(short_opt.length());
+            }
+          }
+        }
+
+        if (!rsn.empty()) {
+          auto arg_it = arguments_.find(short_to_long_[rsn]);
+          auto flag_arg = dynamic_cast<FlagArgument *>(arg_it->second.get());
+
+          if (flag_arg) {
+            throw ParseError("Flag -" + rsn +
+                             " doesn't accept a value, but got: " + value_part);
+          } else {
+            arg_it->second->parse(value_part);
+          }
+          continue;
+        }
+
+        bool combi_flags{true}; // single
+        for (size_t j = 0; j < short_name.length(); ++j) {
+          std::string single_char(1, short_name[j]);
+          auto it = short_to_long_.find(single_char);
+          if (it == short_to_long_.end()) {
+            combi_flags = false;
+            break;
+          }
+          auto arg_it = arguments_.find(it->second);
+          auto flag_arg = dynamic_cast<FlagArgument *>(arg_it->second.get());
+          if (!flag_arg) {
+            combi_flags = false;
+            break;
+          }
+        }
+
+        if (combi_flags) {
+          for (size_t j{0}; j < short_name.length(); ++j) {
+            std::string single_char(1, short_name[j]);
+            auto it = short_to_long_.find(single_char);
+            auto arg_it = arguments_.find(it->second);
+            auto flag_arg = dynamic_cast<FlagArgument *>(arg_it->second.get());
+            flag_arg->parse("");
+          }
+          continue;
+        }
+
+        /* single char parsing | combining of different flags like : '-vdi' */
+        for (size_t j{0}; j < short_name.length(); ++j) {
+          std::string short_opt(1, short_name[j]);
+          auto it = short_to_long_.find(short_opt);
+          if (it == short_to_long_.end()) {
+            throw ParseError("Unknown argument: -" + short_opt);
+          }
+
+          auto arg_it = arguments_.find(it->second);
           auto flag_arg = dynamic_cast<FlagArgument *>(arg_it->second.get());
 
           if (flag_arg) {
             flag_arg->parse("");
           } else {
-            if (i + 1 >= argc) {
-              throw ParseError("Argument --" + short_name +
-                               " requires a value");
-            }
-            arg_it->second->parse(argv[++i]);
-          }
-        } else {
-          /* combining of different flags like : '-vdi' */
-          for (size_t j{0}; j < short_name.length(); ++j) {
-            std::string short_opt(1, short_name[j]);
-            auto it = short_to_long_.find(short_opt);
-            if (it == short_to_long_.end()) {
-              throw ParseError("Unknown argument: -" + short_opt);
-            }
-
-            auto arg_it = arguments_.find(it->second);
-            auto flag_arg = dynamic_cast<FlagArgument *>(arg_it->second.get());
-
-            if (flag_arg) {
-              flag_arg->parse("");
+            if (j < short_name.length() - 1) {
+              // value is attached to single char: -ofile.txt | -vfd
+              arg_it->second->parse(short_name.substr(j + 1));
+              break;
+            } else if (i + 1 >= argc) {
+              throw ParseError("Argument -" + short_opt + " requires a value");
             } else {
-              if (j < short_name.length() - 1) {
-                // value is attached: -ofile.txt | -vfd (combinatorics magic)
-                arg_it->second->parse(short_name.substr(j + 1));
-                break;
-              } else if (i + 1 >= argc) {
-                throw ParseError("Argument -" + short_opt +
-                                 " requires a value");
-              } else {
-                arg_it->second->parse(argv[++i]);
-              }
+              arg_it->second->parse(argv[++i]);
             }
           }
         }
