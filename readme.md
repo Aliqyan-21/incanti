@@ -153,6 +153,10 @@ Out of the box, Incanti supports:
 
 > [**Click here for Docs**](docs.md)
 
+## Examples:
+
+- [**Usage of main game loop inside Incanti Converter**](https://github.com/Aliqyan-21/guessing_game/blob/master/cpp/main.cpp)
+
 ## Design Philosophy
 
 Incanti embodies a few key principles:
