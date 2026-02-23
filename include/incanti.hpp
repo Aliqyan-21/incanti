@@ -20,6 +20,11 @@ public:
   explicit ParseError(const std::string &msg) : std::runtime_error(msg) {}
 };
 
+class HelpRequested : public std::runtime_error {
+public:
+  explicit HelpRequested() : std::runtime_error("") {}
+};
+
 struct required_t {
 } constexpr required{};
 
@@ -229,7 +234,7 @@ public:
 
   std::string get_help() const override {
     std::string result;
-    if (short_name_.empty()) { result += "-" + short_name_ + ", "; }
+    if (!short_name_.empty()) { result += "-" + short_name_ + ", "; }
     result += "--" + name_;
 
     if (!help_.empty()) { result += "\n   " + help_; }
@@ -326,10 +331,7 @@ public:
     for (int i{1}; i < argc; ++i) {
       std::string arg = argv[i];
 
-      if (arg == "-h" || arg == "--help") {
-        print_help();
-        exit(0);
-      }
+      if (arg == "-h" || arg == "--help") { throw HelpRequested(); }
 
       /* long options, starting with '--' */
       if (arg.substr(0, 2) == "--") {
