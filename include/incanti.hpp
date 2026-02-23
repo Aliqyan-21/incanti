@@ -20,83 +20,89 @@ public:
   explicit ParseError(const std::string &msg) : std::runtime_error(msg) {}
 };
 
+class HelpRequested : public std::runtime_error {
+public:
+  explicit HelpRequested() : std::runtime_error("") {}
+};
+
 struct required_t {
 } constexpr required{};
 
 struct help_t {};
 
 struct default_t {};
-template <typename T> struct default_wrapper {
+template <typename T>
+struct default_wrapper {
   T value;
   constexpr default_wrapper(T v) : value(std::move(v)) {}
 };
 
 struct converter_t {};
 
-template <typename T> struct ArgP {
+template <typename T>
+struct ArgP {
   std::string name;
   std::string short_name;
-  T *value_ptr;
+  T          *value_ptr;
 
   ArgP(std::string n, std::string sn, T *p)
-      : name(std::move(n)), short_name(std::move(sn)), value_ptr(p) {}
+    : name(std::move(n)), short_name(std::move(sn)), value_ptr(p) {}
 };
 
 struct FlagP {
   std::string name;
   std::string short_name;
-  bool *value_ptr;
+  bool       *value_ptr;
 
   FlagP(std::string n, std::string sn, bool *p)
-      : name(std::move(n)), short_name(std::move(sn)), value_ptr(p) {}
+    : name(std::move(n)), short_name(std::move(sn)), value_ptr(p) {}
 };
 
 class Argument {
 public:
-  virtual ~Argument() = default;
-  virtual void parse(const std::string &value) = 0;
-  virtual bool has_value() const = 0;
-  virtual std::string get_help() const = 0;
-  virtual bool is_required() const = 0;
-  virtual std::string get_name() const = 0;
+  virtual ~Argument()                                 = default;
+  virtual void        parse(const std::string &value) = 0;
+  virtual bool        has_value() const               = 0;
+  virtual std::string get_help() const                = 0;
+  virtual bool        is_required() const             = 0;
+  virtual std::string get_name() const                = 0;
 };
 
-template <typename T> class TypedArgument : public Argument {
+template <typename T>
+class TypedArgument : public Argument {
 public:
   TypedArgument(const std::string &name, const std::string &short_name,
                 T *value_ptr)
-      : name_(name), short_name_(short_name), value_ptr_(value_ptr),
-        required_(false), has_default_(false), parsed_(false) {
+    : name_(name),
+      short_name_(short_name),
+      value_ptr_(value_ptr),
+      required_(false),
+      has_default_(false),
+      parsed_(false) {
     str_to_T_ = [this](const std::string &s) { return converter_(s); };
   }
 
   void parse(const std::string &value) override {
     try {
       *value_ptr_ = str_to_T_(value);
-      parsed_ = true;
+      parsed_     = true;
     } catch (const std::exception &e) {
       throw ParseError("Failed to parse '" + value + "' for argument --" +
                        name_ + ": " + e.what());
     }
   }
-  bool has_value() const override { return parsed_ || has_default_; }
-  bool is_required() const override { return required_; }
+  bool        has_value() const override { return parsed_ || has_default_; }
+  bool        is_required() const override { return required_; }
   std::string get_name() const override { return name_; }
 
   std::string get_help() const override {
     std::string result;
-    if (!short_name_.empty()) {
-      result += "-" + short_name_ + ", ";
-    }
+    if (!short_name_.empty()) { result += "-" + short_name_ + ", "; }
     result += "--" + name_;
 
-    if (!std::is_same_v<T, bool>) {
-      result += " <value>";
-    }
+    if (!std::is_same_v<T, bool>) { result += " <value>"; }
 
-    if (!help_.empty()) {
-      result += "\n   " + help_;
-    }
+    if (!help_.empty()) { result += "\n   " + help_; }
 
     if (has_default_ && !required_) {
       std::ostringstream oss;
@@ -104,9 +110,7 @@ public:
       result += " (default: " + oss.str() + ")";
     }
 
-    if (required_) {
-      result += " [required]";
-    }
+    if (required_) { result += " [required]"; }
 
     return result;
   }
@@ -119,9 +123,7 @@ public:
   TypedArgument &default_value(const T &value) {
     default_val_ = value;
     has_default_ = true;
-    if (!parsed_) {
-      *value_ptr_ = value;
-    }
+    if (!parsed_) { *value_ptr_ = value; }
     return *this;
   }
 
@@ -156,37 +158,33 @@ public:
                   "Default value must be convertible to argument type");
     default_val_ = static_cast<T>(def_val.value);
     has_default_ = true;
-    if (!parsed_) {
-      *value_ptr_ = default_val_;
-    }
+    if (!parsed_) { *value_ptr_ = default_val_; }
     return *this;
   }
 
   template <typename Func, typename = std::enable_if_t<std::is_invocable_r_v<
-                               T, Func, const std::string &>>>
+                             T, Func, const std::string &>>>
   TypedArgument<T> &operator|(Func &&converter) {
     str_to_T_ = std::forward<Func>(converter);
     return *this;
   }
 
 private:
-  std::string name_;
-  std::string short_name_;
-  std::string help_;
-  T *value_ptr_;
-  T default_val_;
-  bool required_;
-  bool has_default_;
-  bool parsed_;
+  std::string                                name_;
+  std::string                                short_name_;
+  std::string                                help_;
+  T                                         *value_ptr_;
+  T                                          default_val_;
+  bool                                       required_;
+  bool                                       has_default_;
+  bool                                       parsed_;
   std::function<T(const std::string &value)> str_to_T_;
 
   bool boolify_(const std::string &str) {
     std::string lower = str;
     std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
-    if (lower == "true" || lower == "1" || lower == "yes")
-      return true;
-    if (lower == "false" || lower == "0" || lower == "no")
-      return false;
+    if (lower == "true" || lower == "1" || lower == "yes") { return true; }
+    if (lower == "false" || lower == "0" || lower == "no") { return false; }
     throw ParseError("Invalid boolean value: " + str);
   }
 
@@ -205,9 +203,10 @@ private:
       return boolify_(str);
     } else {
       // todo: add link to docs.
-      throw ParseError("No default converter for this type. "
-                       "Please provide a custom .converter() for --" +
-                       name_);
+      throw ParseError(
+        "No default converter for this type. "
+        "Please provide a custom .converter() for --" +
+        name_);
     }
   }
 };
@@ -216,14 +215,16 @@ class FlagArgument : public Argument {
 public:
   FlagArgument(const std::string &name, const std::string &short_name,
                bool *value_ptr)
-      : name_(name), short_name_(short_name), value_ptr_(value_ptr),
-        parsed_(false) {
+    : name_(name),
+      short_name_(short_name),
+      value_ptr_(value_ptr),
+      parsed_(false) {
     *value_ptr_ = false;
   }
 
   void parse(const std::string &value) override {
     *value_ptr_ = true;
-    parsed_ = true;
+    parsed_     = true;
   }
 
   bool has_value() const override { return true; }
@@ -233,14 +234,10 @@ public:
 
   std::string get_help() const override {
     std::string result;
-    if (short_name_.empty()) {
-      result += "-" + short_name_ + ", ";
-    }
+    if (!short_name_.empty()) { result += "-" + short_name_ + ", "; }
     result += "--" + name_;
 
-    if (!help_.empty()) {
-      result += "\n   " + help_;
-    }
+    if (!help_.empty()) { result += "\n   " + help_; }
 
     return result;
   }
@@ -264,16 +261,17 @@ private:
   std::string name_;
   std::string short_name_;
   std::string help_;
-  bool *value_ptr_;
-  bool parsed_;
+  bool       *value_ptr_;
+  bool        parsed_;
 };
 
 class Parser {
 public:
   Parser(const std::string &program_name = "",
          const std::string &program_desc = "")
-      : program_name_(program_name), program_desc_(program_desc),
-        help_added_(false) {
+    : program_name_(program_name),
+      program_desc_(program_desc),
+      help_added_(false) {
     add_help_flag();
   }
 
@@ -293,9 +291,7 @@ public:
 
     auto arg = std::make_shared<TypedArgument<T>>(name, short_name, value_ptr);
     arguments_[name] = arg;
-    if (!short_name.empty()) {
-      short_to_long_[short_name] = name;
-    }
+    if (!short_name.empty()) { short_to_long_[short_name] = name; }
     return *arg;
   }
 
@@ -320,9 +316,7 @@ public:
 
     auto arg = std::make_shared<FlagArgument>(name, short_name, value_ptr);
     arguments_[name] = arg;
-    if (!short_name.empty()) {
-      short_to_long_[short_name] = name;
-    }
+    if (!short_name.empty()) { short_to_long_[short_name] = name; }
     return *arg;
   }
 
@@ -332,17 +326,12 @@ public:
   }
 
   void parse(int argc, char *argv[]) {
-    if (argc > 0 && program_name_.empty()) {
-      program_name_ = argv[0];
-    }
+    if (argc > 0 && program_name_.empty()) { program_name_ = argv[0]; }
 
     for (int i{1}; i < argc; ++i) {
       std::string arg = argv[i];
 
-      if (arg == "-h" || arg == "--help") {
-        print_help();
-        exit(0);
-      }
+      if (arg == "-h" || arg == "--help") { throw HelpRequested(); }
 
       /* long options, starting with '--' */
       if (arg.substr(0, 2) == "--") {
@@ -353,7 +342,7 @@ public:
         size_t eq = name.find("=");
         if (eq != std::string::npos) {
           value = name.substr(eq + 1);
-          name = name.substr(0, eq);
+          name  = name.substr(0, eq);
         }
 
         auto it = arguments_.find(name);
@@ -379,7 +368,7 @@ public:
 
         auto exact_match = short_to_long_.find(short_name);
         if (exact_match != short_to_long_.end()) {
-          auto arg_it = arguments_.find(exact_match->second);
+          auto arg_it   = arguments_.find(exact_match->second);
           auto flag_arg = dynamic_cast<FlagArgument *>(arg_it->second.get());
           if (flag_arg) {
             flag_arg->parse("");
@@ -406,14 +395,14 @@ public:
               short_name.length() > short_opt.length() &&
               short_name.substr(0, short_opt.length()) == short_opt) {
             if (short_opt.length() > rsn.length()) {
-              rsn = short_opt;
+              rsn        = short_opt;
               value_part = short_name.substr(short_opt.length());
             }
           }
         }
 
         if (!rsn.empty()) {
-          auto arg_it = arguments_.find(short_to_long_[rsn]);
+          auto arg_it   = arguments_.find(short_to_long_[rsn]);
           auto flag_arg = dynamic_cast<FlagArgument *>(arg_it->second.get());
 
           if (flag_arg) {
@@ -425,15 +414,15 @@ public:
           continue;
         }
 
-        bool combi_flags{true}; // single
+        bool combi_flags{true};  // single
         for (size_t j = 0; j < short_name.length(); ++j) {
           std::string single_char(1, short_name[j]);
-          auto it = short_to_long_.find(single_char);
+          auto        it = short_to_long_.find(single_char);
           if (it == short_to_long_.end()) {
             combi_flags = false;
             break;
           }
-          auto arg_it = arguments_.find(it->second);
+          auto arg_it   = arguments_.find(it->second);
           auto flag_arg = dynamic_cast<FlagArgument *>(arg_it->second.get());
           if (!flag_arg) {
             combi_flags = false;
@@ -444,8 +433,8 @@ public:
         if (combi_flags) {
           for (size_t j{0}; j < short_name.length(); ++j) {
             std::string single_char(1, short_name[j]);
-            auto it = short_to_long_.find(single_char);
-            auto arg_it = arguments_.find(it->second);
+            auto        it     = short_to_long_.find(single_char);
+            auto        arg_it = arguments_.find(it->second);
             auto flag_arg = dynamic_cast<FlagArgument *>(arg_it->second.get());
             flag_arg->parse("");
           }
@@ -455,12 +444,12 @@ public:
         /* single char parsing | combining of different flags like : '-vdi' */
         for (size_t j{0}; j < short_name.length(); ++j) {
           std::string short_opt(1, short_name[j]);
-          auto it = short_to_long_.find(short_opt);
+          auto        it = short_to_long_.find(short_opt);
           if (it == short_to_long_.end()) {
             throw ParseError("Unknown argument: -" + short_opt);
           }
 
-          auto arg_it = arguments_.find(it->second);
+          auto arg_it   = arguments_.find(it->second);
           auto flag_arg = dynamic_cast<FlagArgument *>(arg_it->second.get());
 
           if (flag_arg) {
@@ -496,9 +485,7 @@ public:
       std::cout << "Usage: " << program_name_ << " [options]" << std::endl;
     }
 
-    if (!program_desc_.empty()) {
-      std::cout << program_desc_ << std::endl;
-    }
+    if (!program_desc_.empty()) { std::cout << program_desc_ << std::endl; }
 
     std::cout << "\nOptions: " << std::endl;
     for (const auto &[name, arg] : arguments_) {
@@ -507,29 +494,30 @@ public:
   }
 
 private:
-  std::string program_name_;
-  std::string program_desc_;
+  std::string                                      program_name_;
+  std::string                                      program_desc_;
   std::map<std::string, std::shared_ptr<Argument>> arguments_;
-  std::map<std::string, std::string> short_to_long_;
-  std::vector<std::string> positionals_;
-  bool help_added_;
+  std::map<std::string, std::string>               short_to_long_;
+  std::vector<std::string>                         positionals_;
+  bool                                             help_added_;
 
   void add_help_flag() {
     if (!help_added_) {
       auto help_flag =
-          std::make_shared<FlagArgument>("help", "h", new bool(false));
+        std::make_shared<FlagArgument>("help", "h", new bool(false));
       help_flag->help("Show this help message");
-      arguments_["help"] = help_flag;
+      arguments_["help"]  = help_flag;
       short_to_long_["h"] = "help";
-      help_added_ = true;
+      help_added_         = true;
     }
   }
 };
-} // namespace Incanti
+}  // namespace Incanti
 
 inline constexpr Incanti::required_t required{};
 
-template <typename T> constexpr auto def(T &&value) {
+template <typename T>
+constexpr auto def(T &&value) {
   return Incanti::default_wrapper<std::decay_t<T>>{std::forward<T>(value)};
 }
 
@@ -537,7 +525,8 @@ template <typename T>
 Incanti::ArgP<T> arg(std::string name, std::string short_name, T *value_ptr) {
   return Incanti::ArgP<T>{std::move(name), std::move(short_name), value_ptr};
 }
-template <typename T> Incanti::ArgP<T> arg(std::string name, T *value_ptr) {
+template <typename T>
+Incanti::ArgP<T> arg(std::string name, T *value_ptr) {
   return arg(std::move(name), "", value_ptr);
 }
 
@@ -556,8 +545,8 @@ Incanti::TypedArgument<T> &operator>>(Incanti::Parser &parser,
 }
 
 inline Incanti::FlagArgument &operator>>(Incanti::Parser &parser,
-                                         Incanti::FlagP p) {
+                                         Incanti::FlagP   p) {
   return parser.flag(std::move(p.name), std::move(p.short_name), p.value_ptr);
 }
 
-#endif //! INCANTI_HPP
+#endif  //! INCANTI_HPP

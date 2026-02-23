@@ -1,6 +1,7 @@
-#include "incanti.hpp"
 #include <iomanip>
 #include <iostream>
+
+#include "incanti.hpp"
 
 /* mostly AI generated file for showcasing and testing incanti */
 
@@ -15,32 +16,27 @@ int main(int argc, char *argv[]) {
   std::string mode;
 
   // numeric arguments
-  int threads = 0;
+  int    threads   = 0;
   double threshold = 0.0;
-  float scale = 0.0f;
+  float  scale     = 0.0f;
 
   // bool flags
   bool verbose = false;
-  bool debug = false;
-  bool force = false;
+  bool debug   = false;
+  bool force   = false;
   bool dry_run = false;
 
   try {
     // required argument like this
-    parser >> arg("input", "i", &input_file)
-      | required
-      | "Input file path";
+    parser >> arg("input", "i", &input_file) | required | "Input file path";
 
     // optional with default value
-    parser >> arg("output", "o", &output_file)
-      | "output file path"
-      | def("output.txt");
+    parser >> arg("output", "o", &output_file) | "output file path" |
+      def("output.txt");
 
     // custom converter (uppercase) like this
-    parser >> arg("mode", "m", &mode)
-      | "Processing mode (fast/slow/balanced)"
-      | def("balanced")
-      | [](const std::string &s) {
+    parser >> arg("mode", "m", &mode) | "Processing mode (fast/slow/balanced)" |
+      def("balanced") | [](const std::string &s) {
         std::string upper = s;
         std::transform(upper.begin(), upper.end(), upper.begin(), ::toupper);
         if (upper != "FAST" && upper != "SLOW" && upper != "BALANCED") {
@@ -49,38 +45,30 @@ int main(int argc, char *argv[]) {
         return upper;
       };
 
-    parser >> arg("threads", "th", &threads)
-        | "Number of worker threads"
-        | def(4);
+    parser >> arg("threads", "th", &threads) | "Number of worker threads" |
+      def(4);
 
     // custom range validation
-    parser >> arg("threshold", &threshold)
-        | "Confidence threshold (0.0-1.0)"
-        | def(0.5)
-        | [](const std::string &s) {
-          double val = std::stod(s);
-          if (val < 0.0 || val > 1.0) {
-            throw Incanti::ParseError("Threshold must be between 0.0 and 1.0");
-          }
-          return val;
-        };
+    parser >> arg("threshold", &threshold) | "Confidence threshold (0.0-1.0)" |
+      def(0.5) | [](const std::string &s) {
+        double val = std::stod(s);
+        if (val < 0.0 || val > 1.0) {
+          throw Incanti::ParseError("Threshold must be between 0.0 and 1.0");
+        }
+        return val;
+      };
 
-    parser >> arg("scale", "s", &scale)
-      | "Scaling factor"
-      | def(1.0f);
+    parser >> arg("scale", "s", &scale) | "Scaling factor" | def(1.0f);
 
     // flags
-    parser >> flag("verbose", "v", &verbose)
-      | "Enable verbose output";
+    parser >> flag("verbose", "v", &verbose) | "Enable verbose output";
 
-    parser >> flag("debug", "d", &debug)
-      | "Enable debug mode";
+    parser >> flag("debug", "d", &debug) | "Enable debug mode";
 
-    parser >> flag("force", "f", &force)
-      | "Force overwrite existing files";
+    parser >> flag("force", "f", &force) | "Force overwrite existing files";
 
-    parser >> flag("dry-run", "n", &dry_run)
-      | "Perform a dry run without making changes";
+    parser >> flag("dry-run", "n", &dry_run) |
+      "Perform a dry run without making changes";
 
     // call parse to parse arguments
     parser.parse(argc, argv);
@@ -128,6 +116,9 @@ int main(int argc, char *argv[]) {
       std::cout << "\n[VERBOSE] Processing complete!" << std::endl;
     }
 
+  } catch (const Incanti::HelpRequested &e) {
+    parser.print_help();
+    return 0;
   } catch (const Incanti::ParseError &e) {
     std::cerr << "\nError: " << e.what() << "\n" << std::endl;
     parser.print_help();
