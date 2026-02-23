@@ -291,6 +291,7 @@ public:
 
     auto arg = std::make_shared<TypedArgument<T>>(name, short_name, value_ptr);
     arguments_[name] = arg;
+    argument_order_.push_back(name);
     if (!short_name.empty()) { short_to_long_[short_name] = name; }
     return *arg;
   }
@@ -316,6 +317,7 @@ public:
 
     auto arg = std::make_shared<FlagArgument>(name, short_name, value_ptr);
     arguments_[name] = arg;
+    argument_order_.push_back(name);
     if (!short_name.empty()) { short_to_long_[short_name] = name; }
     return *arg;
   }
@@ -488,18 +490,20 @@ public:
     if (!program_desc_.empty()) { std::cout << program_desc_ << std::endl; }
 
     std::cout << "\nOptions: " << std::endl;
-    for (const auto &[name, arg] : arguments_) {
-      std::cout << arg->get_help() << std::endl;
+    for (const auto &name : argument_order_) {
+      std::cout << arguments_[name]->get_help() << std::endl;
     }
   }
 
 private:
-  std::string                                      program_name_;
-  std::string                                      program_desc_;
-  std::map<std::string, std::shared_ptr<Argument>> arguments_;
-  std::map<std::string, std::string>               short_to_long_;
-  std::vector<std::string>                         positionals_;
-  bool                                             help_added_;
+  std::string                        program_name_;
+  std::string                        program_desc_;
+  std::map<std::string, std::string> short_to_long_;
+  std::vector<std::string>           positionals_;
+  bool                               help_added_;
+
+  std::unordered_map<std::string, std::shared_ptr<Argument>> arguments_;
+  std::vector<std::string>                                   argument_order_;
 
   void add_help_flag() {
     if (!help_added_) {
